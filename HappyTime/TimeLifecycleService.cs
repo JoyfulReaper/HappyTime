@@ -1,0 +1,98 @@
+﻿/*
+ * Happy Time Service
+ * Copyright (c) 2026 Kyle Givler
+ * Licensed under the MIT License.
+ */
+
+using JoyfulReaperLib.JRNet;
+using Microsoft.Extensions.Options;
+using System.Net;
+
+namespace HappyTime;
+
+/// <summary>
+/// Handles application-level lifecycle telemetry for HappyDaytime.
+/// </summary>
+public sealed class TimeLifecycleService(
+    ILogger<TimeLifecycleService> logger,
+    IOptions<HappyTimeOptions> options) : IHostedLifecycleService
+{
+    /// <inheritdoc />
+    public Task StartingAsync(CancellationToken cancellationToken) =>
+        Task.CompletedTask;
+
+    /// <inheritdoc />
+    public Task StartAsync(CancellationToken cancellationToken) =>
+        Task.CompletedTask;
+
+    /// <inheritdoc />
+    public async Task StartedAsync(CancellationToken cancellationToken)
+    {
+        var listenAddress = IPAddressUtils.ParseListenAddress(options.Value.ListenAddress);
+        var listenEndPoint = new IPEndPoint(listenAddress, options.Value.Port);
+
+        DateTimeOffset occurredAt = DateTimeOffset.UtcNow;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        timeout.CancelAfter(TimeSpan.FromSeconds(2)); // TODO: Make configurable
+        logger.LogInformation("HappyTime Service Listening on {Endpoint}", listenEndPoint);
+
+        try
+        {
+            // TODO: Mission Control
+            //bool published = await missionControlClient
+            //    .TryPublishAsync(
+            //        eventType: DaytimeServiceStartedEvent.EventName,
+            //        payload: new DaytimeServiceStartedEvent(listenEndPoint.ToString()),
+            //        payloadTypeInfo: HappyDaytimeJsonContext
+            //            .Default
+            //            .DaytimeServiceStartedEvent,
+            //        occurredAt: occurredAt,
+            //        correlationId: null,
+            //        cancellationToken: timeout.Token);
+
+            //if (!published)
+            //{
+            //    logger.LogWarning(
+            //        "Mission Control did not accept {EventType}.",
+            //        DaytimeServiceStartedEvent.EventName);
+            //}
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            logger.LogDebug(
+                "Mission Control event publication for Daytime Service Started was cancelled.");
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogWarning(
+                "Mission Control event publication for Daytime Service Started timed out.");
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Failed to publish Mission Control event for Daytime Service Started.");
+        }
+    }
+
+    /// <inheritdoc />
+    public Task StoppingAsync(
+        CancellationToken cancellationToken)
+    {
+        logger.LogInformation("HappyDaytime Service Stopping...");
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task StopAsync(
+        CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+    /// <inheritdoc />
+    public Task StoppedAsync(
+        CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+}

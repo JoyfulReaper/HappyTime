@@ -1,0 +1,38 @@
+/*
+ * Happy Time Service
+ * Copyright (c) 2026 Kyle Givler
+ * Licensed under the MIT License.
+ */
+
+using HappyTime;
+//using JoyfulReaperLib.MissionControl; TODO
+using JoyfulReaperLib.TcpServer;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services.AddWindowsService(options =>
+{
+    options.ServiceName = "Happy Daytime Server";
+});
+
+var daytimeSection = builder.Configuration.GetSection(HappyTimeOptions.SectionName);
+builder.Services
+    .AddOptions<HappyTimeOptions>()
+    .Bind(daytimeSection)
+    .Validate(options => options.Port is > 0 and <= 65535, "Daytime:Port must be between 1 and 65535.")
+    .Validate(options => options.MaxConcurrentConnections > 0, "Daytime:MaxConcurrentConnections must be positive.")
+    .Validate(options => options.RequestTimeoutSeconds > 0, "Daytime:RequestTimeoutSeconds must be positive.")
+    .Validate(options => !options.UdpEnabled || (options.UdpPort ?? options.Port) is > 0 and <= 65535,
+        "Daytime:UdpPort must be between 1 and 65535 when UDP is enabled.")
+    .ValidateOnStart();
+
+//builder.Services.AddMissionControlClient(
+//    builder.Configuration.GetSection(
+//        MissionControlClientOptions.SectionName));
+
+builder.Services.AddTcpServer<TimeConnectionHandler, HappyTimeOptions>();
+builder.Services.AddHostedService<UdpTimeService>();
+builder.Services.AddHostedService<TimeLifecycleService>();
+
+var host = builder.Build();
+host.Run();
